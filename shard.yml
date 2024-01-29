@@ -6,4 +6,4 @@ authors:
 
 crystal: '>= 1.11.2'
 
-license: MIT
+license: Apache 2.0
