@@ -2,33 +2,48 @@ require "http/client"
 require "json"
 require "./api/**"
 
-# TODO: Write documentation for `Elasticsearch`
+# Experimental Elasticsearch client in Crystal, ported from elasticsearch-ruby
+#
 module Elasticsearch
   VERSION = "0.1.0"
-  HTTP_GET = "GET"
-  HTTP_PUT = "PUT"
-  HTTP_HEAD = "HEAD"
-  HTTP_POST = "POST"
-  HTTP_DELETE = "DELETE"
 
   class Client
-    include Elasticsearch::API::Actions::Info
+    include Elasticsearch::API::Actions
 
     getter :host
 
+    # Creates an `Elasticsearch::Client` with a given host
     def initialize(host : String = "http://localhost:9200")
-      @host = host
+      @host = URI.parse(host)
     end
 
-    def perform_request(method, path, headers = nil, body = nil)
-      response = HTTP::Client.get(@host)
-      Elasticsearch::API::Response.new(JSON.parse(response.body), response.status_code, response.headers)
+    # Main function to perform the HTTP Request to Elasticsearch
+    #
+    # Returns an `Elasticsearch::API::Response` object
+    def perform_request(method, path, params = Hash(String, String).new, body = nil, headers = nil)
+      params = URI::Params.encode(params)
+      request = URI.new(@host.scheme, @host.host, @host.port, path, query: params)
+      # TODO: Headers management and different content-types
+      headers = HTTP::Headers{"content-type" => "application/json"}
+
+      response = HTTP::Client.exec(method, request, headers, body)
+
+      # TODO: Body management
+      response_body = if response.headers["content-type"] == "application/json" && !response.body.empty?
+               JSON.parse(response.body)
+             else
+               response.body
+             end
+      Elasticsearch::API::Response.new(response_body, response.status_code, response.headers)
     end
   end
-end
 
-# client = Elasticsearch::Client.new
-# coso = client.info
-# puts coso.body
-# puts coso.headers
-# puts coso.status
+  # API namespace specific code
+  module API
+    HTTP_GET = "GET"
+    HTTP_PUT = "PUT"
+    HTTP_HEAD = "HEAD"
+    HTTP_POST = "POST"
+    HTTP_DELETE = "DELETE"
+  end
+end
